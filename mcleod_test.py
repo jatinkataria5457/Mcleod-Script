@@ -22,8 +22,10 @@ dataset_name=['Consumption Dataset','Revenue Dataset',
               'Demography Dataset','Item Master']
 merge_keys=['Patient ID','Patient ID' ,'Model Nbr' ]
 NullChecklist=['Patient ID','Qty Used','Cost','Model Nbr']
-MappingChecklist={'Revenue Dataset':['Patient ID','Charge'],
-                 'Consumption Dataset':['Patient ID','Case ID']}
+MappingChecklist={dataset_name[0]:['Patient ID','Case ID'],
+                  dataset_name[1]:['Patient ID','Charge'],
+                  dataset_name[2]:['Patient ID','Medical Record'],
+                  dataset_name[3]:['Model Nbr']}
 
 
 
@@ -71,49 +73,83 @@ def MappingCheck(df):
     for i in MappingChecklist.keys():
         
         print('\nPerforming mapping check on %s vis-à-vis %s\n'%(i,MappingChecklist[i]))
-        grp=df[i].groupby(MappingChecklist[i][0])
-        mapping_series=(grp[MappingChecklist[i][1]].unique()).agg(np.size).sort_values(ascending=False)
-        print(mapping_series)
-        if len(mapping_series[mapping_series>1])==0:
-            print('Conclusion--> 1 to 1 mapping')
-        else:
-            print('Conclusion--> 1 to many mapping')
-            print('\nCorrecting many mapping into 1 to 1 mapping ')
-          
-            many_relation_items=mapping_series[mapping_series>1].index.tolist()
-            if np.issubdtype(df[i][MappingChecklist[i][1]].dtype, np.number)==False:
-                many_relation_items=mapping_series[mapping_series>1].index.tolist()
-                corrections=[':'.join(grp.get_group(items)[MappingChecklist[i][1]].unique()) for items in many_relation_items]
-                map_reference=list(zip(many_relation_items,corrections))
-                #print(map_reference)
-                df_correction=df[i]
-                df_correction['Adjusted '+MappingChecklist[i][1]]=df_correction[MappingChecklist[i][1]]
-                
-                common_mapping_key=[value for value in list(MappingChecklist.values())[0] if value in list(MappingChecklist.values())[1]][0]
-                
-                
-                for ref in map_reference:
-                  df_correction.loc[df_correction[common_mapping_key] == ref[0], 'Adjusted '+MappingChecklist[i][1]] = ref[1]
-                
-    
+        if i==dataset_name[2]:
+            data=df[dataset_name[2]]
+            data["is_duplicate"]=data.duplicated(subset=MappingChecklist[dataset_name[2]], keep='first')
+            grp=data.groupby(MappingChecklist[i][0])
+            mapping_series=(grp["is_duplicate"].unique()).agg(np.size).sort_values(ascending=False)
+            print(mapping_series)  
+            if len(mapping_series[mapping_series>1])==0:
+                print('Conclusion--> 1 to 1 mapping')
             else:
+                print('Conclusion--> 1 to many mapping')
+                print('\nCorrecting many mapping into 1 to 1 mapping ')
                 many_relation_items=mapping_series[mapping_series>1].index.tolist()
-                corrections=[np.sum(grp.get_group(items)[MappingChecklist[i][1]].unique()) for items in many_relation_items]
-                #print(corrections)
-                map_reference=list(zip(many_relation_items,corrections))
-                #print(map_reference)
+                df[dataset_name[2]].drop_duplicates(subset=MappingChecklist[dataset_name[2]], keep="first", inplace=True)
+                df[dataset_name[2]].drop(['is_duplicate'],axis=1,inplace=True)
                 
-                df_correction=df[i]
-                df_correction['Adjusted '+MappingChecklist[i][1]]=df_correction[MappingChecklist[i][1]]
-                
-                common_mapping_key=[value for value in list(MappingChecklist.values())[0] if value in list(MappingChecklist.values())[1]][0]
+        elif i==dataset_name[3]:
+            data=df[dataset_name[3]]
+            data["is_duplicate"]=data.duplicated(subset=MappingChecklist[dataset_name[3]], keep='first')
+            grp=data.groupby(MappingChecklist[i][0])
+            mapping_series=(grp["is_duplicate"]).agg(np.size).sort_values(ascending=False)
+            print(mapping_series) 
+            print(len(mapping_series))
+            if len(mapping_series[mapping_series>1])==0:
+                print('Conclusion--> 1 to 1 mapping')
+            else:
+                print('Conclusion--> 1 to many mapping')
+                print('\nCorrecting many mapping into 1 to 1 mapping ')
+                many_relation_items=mapping_series[mapping_series>1].index.tolist()
+                df[dataset_name[3]].drop_duplicates(subset=MappingChecklist[dataset_name[3]], keep="first", inplace=True)
+                df[dataset_name[3]].drop(['is_duplicate'],axis=1,inplace=True)
+       
+        else: 
+            grp=df[i].groupby(MappingChecklist[i][0])
+            mapping_series=(grp[MappingChecklist[i][1]].unique()).agg(np.size).sort_values(ascending=False)
+            print(mapping_series)
+            if len(mapping_series[mapping_series>1])==0:
+                print('Conclusion--> 1 to 1 mapping')
+            else:
+                print('Conclusion--> 1 to many mapping')
+                print('\nCorrecting many mapping into 1 to 1 mapping ')
+              
+                many_relation_items=mapping_series[mapping_series>1].index.tolist()
+                if np.issubdtype(df[i][MappingChecklist[i][1]].dtype, np.number)==False:
+                    many_relation_items=mapping_series[mapping_series>1].index.tolist()
+                    corrections=[':'.join(grp.get_group(items)[MappingChecklist[i][1]].unique()) for items in many_relation_items]
+                    map_reference=list(zip(many_relation_items,corrections))
+                    #print(map_reference)
+                    df_correction=df[i]
+                    df_correction['Adjusted '+MappingChecklist[i][1]]=df_correction[MappingChecklist[i][1]]
+                    
+                    common_mapping_key=[value for value in list(MappingChecklist.values())[0] if value in list(MappingChecklist.values())[1]][0]
+                    
+                    
+                    for ref in map_reference:
+                      df_correction.loc[df_correction[common_mapping_key] == ref[0], 'Adjusted '+MappingChecklist[i][1]] = ref[1]
+                    
         
-                for ref in map_reference:
-                  df_correction.loc[df_correction[common_mapping_key] == ref[0], 'Adjusted '+MappingChecklist[i][1]] = ref[1]
- 
+                else:
+                    many_relation_items=mapping_series[mapping_series>1].index.tolist()
+                    corrections=[np.sum(grp.get_group(items)[MappingChecklist[i][1]].unique()) for items in many_relation_items]
+                    #print(corrections)
+                    map_reference=list(zip(many_relation_items,corrections))
+                    #print(map_reference)
+                    
+                    df_correction=df[i]
+                    df_correction['Adjusted '+MappingChecklist[i][1]]=df_correction[MappingChecklist[i][1]]
+                    
+                    common_mapping_key=[value for value in list(MappingChecklist.values())[0] if value in list(MappingChecklist.values())[1]][0]
+            
+                    for ref in map_reference:
+                      df_correction.loc[df_correction[common_mapping_key] == ref[0], 'Adjusted '+MappingChecklist[i][1]] = ref[1]
+     
        
 
 MappingCheck(df_wo_null_zipped)
+
+
 
 
 
@@ -122,9 +158,11 @@ def MergeDatasets(df,merge_keys):
     base_dataset=df[dataset_name[0]]
     for i in range(len(merge_keys)):
         df['Merged Dataset']=pd.merge(base_dataset,df[dataset_name[i+1]],
-                                      on=merge_keys[i],how='inner')
+                                      on=merge_keys[i],how='left')
         base_dataset=df['Merged Dataset']
     print('\nMerging complete. Access the merged dataset by opening--> df_wo_null_zipped')
 
+
 MergeDatasets(df_wo_null_zipped, merge_keys)
+
 
